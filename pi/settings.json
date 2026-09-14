@@ -1,0 +1,10 @@
+{
+  "lastChangelogVersion": "0.85.1",
+  "defaultProvider": "dgx-spark",
+  "defaultModel": "deepseek-v4-flash-0731",
+  "theme": "dark",
+  "packages": [
+    "npm:pi-vision",
+    "npm:pi-sessions"
+  ]
+}

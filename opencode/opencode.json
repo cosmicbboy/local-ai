@@ -1,0 +1,67 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "dgx-spark/deepseek-v4-flash-0731",
+  "provider": {
+    "dgx-spark": {
+      "name": "DGX Spark (local DeepSeek V4)",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://100.70.69.103:8888/v1",
+        "apiKey": "EMPTY"
+      },
+      "models": {
+        "deepseek-v4-flash-0731": {
+          "name": "DeepSeek V4 Flash 0731",
+          "options": {
+            "reasoning": true
+          }
+        }
+      }
+    },
+    "qwen-token-plan": {
+      "name": "QwenCloud Token Plan",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+        "apiKey": "${env:QWEN_TOKEN_PLAN_API_KEY}"
+      },
+      "models": {
+        "deepseek-v4-pro": {
+          "name": "DeepSeek V4 Pro",
+          "options": {
+            "reasoning": true
+          }
+        },
+        "deepseek-v4-flash-0731": {
+          "name": "DeepSeek V4 Flash 0731",
+          "options": {
+            "reasoning": true
+          }
+        },
+        "glm-5.2": {
+          "name": "GLM-5.2",
+          "options": {
+            "reasoning": true
+          }
+        }
+      }
+    },
+    "ollama": {
+      "models": {
+        "glm-4.7-flash": {
+          "_launch": true,
+          "name": "glm-4.7-flash"
+        },
+        "qwen3-coder-next": {
+          "_launch": true,
+          "name": "qwen3-coder-next"
+        }
+      },
+      "name": "Ollama",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:11435/v1"
+      }
+    }
+  }
+}

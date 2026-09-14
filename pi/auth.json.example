@@ -1,0 +1,6 @@
+{
+  "qwen-token-plan": {
+    "apiKeyEnv": "QWEN_TOKEN_PLAN_API_KEY",
+    "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+  }
+}
