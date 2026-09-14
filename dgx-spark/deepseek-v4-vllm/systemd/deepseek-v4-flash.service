@@ -1,0 +1,23 @@
+[Unit]
+Description=DeepSeek-V4-Flash-0731 vLLM + DSpark, TP=2 across both DGX Sparks (API 0.0.0.0:8888)
+Documentation=file:///home/nielsbantilan/double-dgx-repro-runbook.md
+# Runs from node 1 (spark-a7e9) and drives node 2 (192.168.100.11) over ssh.
+# Config: /home/nielsbantilan/dspark-ds4-0731/.env.dspark (same as the verified 2026-09-12 deployment).
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/nielsbantilan/dspark-ds4-0731
+Environment=HOME=/home/nielsbantilan
+# Wait for local docker, the RoCE link, and node 2 (docker + image) — up to 30 min.
+ExecStartPre=/home/nielsbantilan/dspark-wait-cluster.sh
+# Drop-caches sidecar on both nodes, worker then head, wait for the API + boot warmup.
+ExecStart=/home/nielsbantilan/serve-dspark-ds4.sh
+ExecStop=/home/nielsbantilan/dspark-ds4-0731/stop-deepseek-v4-flash-dspark.sh
+# Launcher exits 3 when both ranks are already up.
+SuccessExitStatus=3
+TimeoutStartSec=90min
+TimeoutStopSec=5min
+
+[Install]
+WantedBy=default.target
