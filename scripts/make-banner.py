@@ -1,208 +1,226 @@
 #!/usr/bin/env python3
-"""Generate a banner image for the local-ai repo. Pure Pillow (no external deps)."""
+"""Generate an abstract banner for the local-ai repo. Pure Pillow (no external deps).
+
+Artistic concept: a local AI "stack" — a luminous central core (the self-hosted
+DeepSeek box) fed by a cascade of neural layers that funnel in from the left, while
+three translucent strata (the opencode / pi / dsh layers) stack up and orbit it.
+No text, only shape, glow and flow.
+"""
 import math, random
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 W, H = 1600, 800
-WIDTH, HEIGHT = W, H
-random.seed(42)
+random.seed(7)
 
-MONO = "/System/Library/Fonts/SFNSMono.ttf"
-HELV = "/System/Library/Fonts/Helvetica.ttc"
-
-def font(path, size):
-    return ImageFont.truetype(path, size)
+CYAN   = (56, 208, 255)
+MAGENTA= (255, 82, 205)
+PERIW  = (120, 150, 255)
+CRIMSON= (255, 90, 120)
 
 # ---------------- background gradient ----------------
-def make_gradient(w, h, c1, c2, c3=None, angle=90):
-    """Vertical-ish gradient; optionally 3-stop."""
+def make_gradient(w, h, c1, c2, c3):
     img = Image.new("RGB", (int(w), int(h)))
     d = ImageDraw.Draw(img)
     for y in range(h):
         t = y / max(1, h - 1)
-        if c3 is None:
-            r = int(c1[0] + (c2[0] - c1[0]) * t)
-            g = int(c1[1] + (c2[1] - c1[1]) * t)
-            b = int(c1[2] + (c2[2] - c1[2]) * t)
+        if t < 0.5:
+            tt = t * 2; a, b = c1, c2
         else:
-            if t < 0.5:
-                tt = t * 2
-                a, b_ = c1, c2
-            else:
-                tt = (t - 0.5) * 2
-                a, b_ = c2, c3
-            r = int(a[0] + (b_[0] - a[0]) * tt)
-            g = int(a[1] + (b_[1] - a[1]) * tt)
-            b = int(a[2] + (b_[2] - a[2]) * tt)
-        d.line([(0, y), (w, y)], fill=(r, g, b))
+            tt = (t - 0.5) * 2; a, b = c2, c3
+        r = int(a[0] + (b[0] - a[0]) * tt)
+        g = int(a[1] + (b[1] - a[1]) * tt)
+        bl = int(a[2] + (b[2] - a[2]) * tt)
+        d.line([(0, y), (w, y)], fill=(r, g, bl))
     return img
 
-base = make_gradient(W, H, (7, 9, 26), (16, 14, 46), (8, 20, 34))
+base = make_gradient(W, H, (5, 7, 22), (16, 12, 46), (7, 18, 32))
 
-# ---------------- neural network graph ----------------
-neo_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-nd = ImageDraw.Draw(neo_layer)
-
-def node_layer(y, n, x0, x1, jitter):
-    xs = [x0 + (x1 - x0) * i / max(1, n - 1) for i in range(n)]
-    nodes = []
-    for x in xs:
-        nodes.append((x + random.uniform(-jitter, jitter), y + random.uniform(-jitter, jitter)))
-    return nodes
-
-layers = []
-y0 = H * 0.16
-for i, n in enumerate([5, 9, 12, 9, 6]):
-    layers.append(node_layer(y0 + i * (H * 0.16), n, W * 0.06, W * 0.94, 26))
-
-# glow pass on lines then circles
-lines = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-ld = ImageDraw.Draw(lines)
-cyan = (56, 208, 255)
-magenta = (255, 82, 205)
-for li in range(len(layers) - 1):
-    for a in layers[li]:
-        for b in layers[li + 1]:
-            if random.random() < 0.55:
-                col = cyan if random.random() < 0.6 else magenta
-                ld.line([a, b], fill=col + (40,), width=1)
-lines = lines.filter(ImageFilter.GaussianBlur(2))
-neo_layer.alpha_composite(lines)
-
-for i, layer in enumerate(layers):
-    for (x, y) in layer:
-        glow_col = magenta if i % 2 == 0 else cyan
-        nd.ellipse([x - 9, y - 9, x + 9, y + 9], fill=glow_col + (50,))
-        nd.ellipse([x - 3.6, y - 3.6, x + 3.6, y + 3.6], fill=glow_col + (255,))
+top = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+td = ImageDraw.Draw(top)
 
 # ---------------- faint dot grid ----------------
-grid = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-gd = ImageDraw.Draw(grid)
-step = 60
-for gx in range(0, W, step):
-    for gy in range(0, H, step):
-        gd.ellipse([gx - 1.2, gy - 1.2, gx + 1.2, gy + 1.2], fill=(140, 190, 255, 36))
-neo_layer.alpha_composite(grid)
+for gx in range(0, W, 54):
+    for gy in range(0, H, 54):
+        td.ellipse([gx - 1.2, gy - 1.2, gx + 1.2, gy + 1.2], fill=(140, 190, 255, 30))
 
-# ---------------- left panel: dark glass card ----------------
-card = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-cd = ImageDraw.Draw(card)
-x0, y0c, x1, y1c = 70, 150, 620, 690
-cd.rounded_rectangle([x0, y0c, x1, y1c], radius=28, fill=(10, 14, 34, 235),
-                     outline=(88, 120, 255, 110), width=2)
-# subtle top highlight
-cd.rounded_rectangle([x0, y0c, x1, y0c + 90], radius=28, fill=(255, 255, 255, 10))
-cd.rectangle([x0, y0c + 60, x1, y0c + 90], fill=(10, 14, 34, 235))  # blend
-neo_layer.alpha_composite(card)
+# ---------------- background nebula glow ----------------
+neb = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+ndb = ImageDraw.Draw(neb)
+ndb.ellipse([W*0.58, H*0.12, W*1.18, H*0.9], fill=(80, 65, 210, 60))
+ndb.ellipse([W*0.02, H*0.05, W*0.55, H*1.05], fill=(22, 130, 170, 42))
+ndb.ellipse([W*-0.08, H*0.25, W*0.22, H*0.78], fill=(255, 82, 170, 22))
+neb = neb.filter(ImageFilter.GaussianBlur(120))
+top.alpha_composite(neb)
 
-# ---------------- text ----------------
-txt_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-td = ImageDraw.Draw(txt_layer)
-white = (238, 243, 254)
-dim = (150, 165, 200)
+# ---------------- three translucent stack strata ----------------
+strata = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+sd = ImageDraw.Draw(strata)
+slab_colors = [(56, 208, 255), (140, 120, 255), (255, 82, 205)]
+for i, col in enumerate(slab_colors):
+    y = H * (0.24 + i * 0.22)
+    amp = 26 + i * 8
+    # wavy band
+    pts = []
+    steps = 140
+    for s in range(steps + 1):
+        x = W * s / steps
+        wob = math.sin(x * 0.004 + i * 2.1) * amp + math.sin(x * 0.011 - i) * (amp * 0.4)
+        pts.append((x, y + wob))
+    band = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(band)
+    bd.line(pts, fill=col + (70,), width=3)
+    for x in range(0, W, 9):
+        yy = y + math.sin(x * 0.004 + i * 2.1) * amp + math.sin(x * 0.011 - i) * (amp * 0.4)
+        bd.ellipse([x - 2, yy - 2, x + 2, yy + 2], fill=col + (90,))
+    band = band.filter(ImageFilter.GaussianBlur(7))
+    strata.alpha_composite(band)
+top.alpha_composite(strata)
 
-# small eyebrow tag
-tag_font = font(MONO, 34)
-td.text((95, 200), "// personal ai stack", font=tag_font, fill=(110, 180, 255))
-td.rectangle([95, 232, 690, 234], fill=(110, 180, 255, 120))
+# ---------------- neural funnel converging on the core ----------------
+funnel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+fd = ImageDraw.Draw(funnel)
+core = (W * 0.76, H * 0.5)
 
-# big title with `>` prompt char
-big = font(MONO, 150)
-td.text((90, 268), ">", font=big, fill=(56, 208, 255))
-title = "local-ai"
-tw = td.textlength(title, font=big)
-# gradient fill the title text via mask
-title_img = Image.new("RGBA", (int(tw) + 20, 210), (0, 0, 0, 0))
-tid = ImageDraw.Draw(title_img)
-tid.text((0, 0), title, font=big, fill=(255, 255, 255))
-mask = title_img.split()[3]
-grad = make_gradient(tw + 20, 210, (56, 208, 255), (120, 120, 255), (255, 82, 205))
-grad = grad.convert("RGBA")
-grad.putalpha(mask)
-txt_layer.alpha_composite(grad, (170, 268))
+# faint sonar rings far left — the distant source the signal travels from
+sonar = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+sd = ImageDraw.Draw(sonar)
+for srad in (90, 160, 235):
+    sd.ellipse([W*0.13 - srad, H*0.5 - srad*0.62, W*0.13 + srad, H*0.5 + srad*0.62],
+               outline=CYAN + (36,), width=2)
+for srad in (90, 160, 235):
+    a0 = math.radians(-18); a1 = math.radians(30)
+    sd.arc([W*0.13 - srad, H*0.48 - srad*0.62, W*0.13 + srad, H*0.48 + srad*0.62],
+           a0, a1, fill=MAGENTA + (60,), width=2)
+sonar = sonar.filter(ImageFilter.GaussianBlur(1.5))
+funnel.alpha_composite(sonar)
 
-# subtitle
-sub = font(MONO, 40)
-sub_txt = "deepseek v4  .  self-hosted  .  always-on dsh service"
-td.text((95, 500), sub_txt, font=sub, fill=dim)
+def ring_nodes(cx, cy, r, n, jitter):
+    out = []
+    for i in range(n):
+        a = i / n * 2 * math.pi + random.uniform(0, 0.4)
+        out.append((cx + (r + random.uniform(-jitter, jitter)) * math.cos(a),
+                    cy + (r + random.uniform(-jitter, jitter)) * math.sin(a)))
+    return out
 
-# tags row
-def tag(text, x, color):
-    f = font(MONO, 34)
-    w = td.textlength(text, font=f)
-    td.rounded_rectangle([x, 570, x + w + 44, 622], radius=16, outline=color + (160,), width=2)
-    td.text((x + 22, 576), text, font=f, fill=color)
+# three concentric source rings mid-left
+rings = [
+    (core[0] - 470, core[1] - 60, 150, 5, 26),
+    (core[0] - 300, core[1] + 40, 120, 6, 24),
+    (core[0] - 150, core[1] - 20, 90, 5, 22),
+]
+all_nodes = []
+for cx, cy, r, n, jit in rings:
+    all_nodes.append(ring_nodes(cx, cy, r, n, jit))
 
-tag("  opencode", 95, (56, 208, 255))
-tag("  pi", 310, (140, 120, 255))
-tag("  dsh", 435, (255, 82, 205))
+# connective mesh between source nodes and the core (data flowing inward)
+line_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+ld = ImageDraw.Draw(line_layer)
+for layer in all_nodes:
+    for (x, y) in layer:
+        if random.random() < 0.7:
+            # inward curve toward core
+            mx = (x + core[0]) / 2
+            my = (y + core[1]) / 2 - random.uniform(-40, 40)
+            col = CYAN if random.random() < 0.55 else MAGENTA
+            ld.line([(x, y), (mx, my), core], fill=col + (36,), width=1, joint="curve")
+        if random.random() < 0.3:  # occasional cross-layer link
+            other = random.choice(all_nodes)
+            ob = random.choice(other)
+            col = PERIW
+            ld.line([(x, y), ob], fill=col + (22,), width=1)
+line_layer = line_layer.filter(ImageFilter.GaussianBlur(2))
+funnel.alpha_composite(line_layer)
 
-# ---------------- right panel: cpu/neural node icon ----------------
-icon = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-idd = ImageDraw.Draw(icon)
-cx, cy, R = 1240, 400, 158
-# glow underlay
-glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-gl = ImageDraw.Draw(glow)
-gl.ellipse([cx - R - 26, cy - R - 26, cx + R + 26, cy + R + 26], fill=(56, 208, 255, 60))
-glow = glow.filter(ImageFilter.GaussianBlur(24))
-icon.alpha_composite(glow)
+# draw source nodes w/ glow
+for layer in all_nodes:
+    for (x, y) in layer:
+        col = MAGENTA if random.random() < 0.4 else CYAN
+        fd.ellipse([x - 9, y - 9, x + 9, y + 9], fill=col + (55,))
+        fd.ellipse([x - 3.5, y - 3.5, x + 3.5, y + 3.5], fill=col + (255,))
+top.alpha_composite(funnel)
 
-# outer ring (rotating dashes)
-for k in range(0, 360, 8):
-    a0 = math.radians(k)
-    a1 = math.radians(k + 4)
-    r0, r1 = R + 20, R + 26
-    idd.line([(cx + r0 * math.cos(a0), cy + r0 * math.sin(a0)),
-              (cx + r1 * math.cos(a1), cy + r1 * math.sin(a1))], fill=(120, 200, 255, 220), width=5)
+# ---------------- the core: layered glowing star ----------------
+core_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+kd = ImageDraw.Draw(core_layer)
+cx, cy = core
+# halo
+halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+hd = ImageDraw.Draw(halo)
+hd.ellipse([cx - 190, cy - 190, cx + 190, cy + 190], fill=(120, 190, 255, 70))
+hd.ellipse([cx - 120, cy - 120, cx + 120, cy + 120], fill=(200, 120, 255, 60))
+halo = halo.filter(ImageFilter.GaussianBlur(45))
+core_layer.alpha_composite(halo)
 
-# cpu body
-idd.rounded_rectangle([cx - R, cy - R, cx + R, cy + R], radius=34, fill=(13, 18, 44),
-                      outline=(92, 130, 255, 200), width=3)
-# inner neural node
-inner = 118
-idd.ellipse([cx - inner, cy - inner, cx + inner, cy + inner],
-            outline=(56, 208, 255, 220), width=2)
-idd.ellipse([cx - 56, cy - 56, cx + 56, cy + 56], fill=(16, 24, 56),
-            outline=(255, 82, 205, 200), width=2)
-# nucleus
-idd.ellipse([cx - 24, cy - 24, cx + 24, cy + 24], fill=(56, 208, 255, 230))
+# rotating dashed orbit (data always-on)
+for k in range(0, 360, 7):
+    a0 = math.radians(k); a1 = math.radians(k + 3)
+    r0, r1 = 168, 176
+    if random.random() < 0.85:
+        kd.line([(cx + r0*math.cos(a0), cy + r0*math.sin(a0)),
+                 (cx + r1*math.cos(a1), cy + r1*math.sin(a1))], fill=(150, 210, 255, 200), width=5)
 
-# pins around the cpu
-pins = [(cx - R - 30, cy - 70), (cx - R - 30, cy - 20), (cx - R - 30, cy + 30), (cx - R - 30, cy + 80),
-        (cx + R + 6, cy - 70), (cx + R + 6, cy - 20), (cx + R + 6, cy + 30), (cx + R + 6, cy + 80),
-        (cx - 70, cy - R - 30), (cx - 20, cy - R - 30), (cx + 30, cy - R - 30), (cx + 80, cy - R - 30),
-        (cx - 70, cy + R + 6), (cx - 20, cy + R + 6), (cx + 30, cy + R + 6), (cx + 80, cy + R + 6)]
-for px, py in pins:
-    idd.ellipse([px - 10, py - 10, px + 10, py + 10], fill=(120, 170, 255), outline=(200, 225, 255))
+# outer orbit satellite rings (tilted)
+for tilt, rad, col in [(0.35, 135, CYAN), (-0.5, 105, MAGENTA)]:
+    for a in [t for t in range(0, 36000, 300)]:
+        a = a / 100.0
+        x = cx + rad * math.cos(a)
+        y = cy + rad * math.sin(a) * 0.5 + tilt * 30
+        kd.ellipse([x - 2.4, y - 2.4, x + 2.4, y + 2.4], fill=col + (230,))
 
-neo_layer.alpha_composite(icon)
+# nucleus: concentric
+kd.ellipse([cx - 74, cy - 74, cx + 74, cy + 74], fill=(14, 20, 48),
+           outline=(90, 130, 255, 210), width=3)
+kd.ellipse([cx - 52, cy - 52, cx + 52, cy + 52],
+           outline=(56, 208, 255, 220), width=2)
+kd.ellipse([cx - 30, cy - 30, cx + 30, cy + 30], fill=(255, 82, 205, 210),
+           outline=(255, 180, 240, 255), width=2)
+# white-hot center
+kd.ellipse([cx - 12, cy - 12, cx + 12, cy + 12], fill=(240, 250, 255))
+top.alpha_composite(core_layer)
 
-# ---------------- bottom bar ----------------
+# ---------------- scattered particles / constellation / signal streams ----------------
+particles = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+pd = ImageDraw.Draw(particles)
+for _ in range(150):
+    x = random.uniform(0, W); y = random.uniform(0, H)
+    r = random.uniform(0.8, 2.8)
+    col = random.choice([CYAN, MAGENTA, PERIW])
+    alpha = random.randint(60, 200)
+    pd.ellipse([x - r, y - r, x + r, y + r], fill=col + (alpha,))
+# dotted signal streams curving toward the core (like data carriers)
+for _ in range(11):
+    y0 = random.uniform(H*0.18, H*0.82)
+    col = random.choice([CYAN, MAGENTA, PERIW])
+    for t in range(0, 100, 5):
+        tt = t / 100.0
+        x = W*0.06 + tt * (core[0] - W*0.06)
+        y = y0 + math.sin(tt * 4.2 + y0) * 42 - tt * (y0 - core[1]) * 0.6
+        if random.random() < 0.6:
+            pd.ellipse([x-1.6, y-1.6, x+1.6, y+1.6], fill=col + (70,))
+top.alpha_composite(particles)
+
+# ---------------- bottom data bar ----------------
 bar = Image.new("RGBA", (W, H), (0, 0, 0, 0))
 bd = ImageDraw.Draw(bar)
-bd.rectangle([0, H - 8, W, H], fill=(20, 26, 54, 255))
-for bx in range(0, W, 22):
-    bd.rectangle([bx, H - 8, bx + 11, H], fill=(56, 208, 255, 120))
+bd.rectangle([0, H - 7, W, H], fill=(24, 30, 60, 255))
+for bx in range(0, W, 20):
+    bh = random.randint(4, 9)
+    bd.rectangle([bx, H - 7, bx + 9, H - 7 + bh], fill=CYAN + (130,))
+top.alpha_composite(bar)
 
-neo_layer.alpha_composite(bar)
-
-# ---------------- compose ----------------
+# ---------------- compose + vignette ----------------
 final = base.convert("RGBA")
-final.alpha_composite(neo_layer)
-final.alpha_composite(txt_layer)
+final.alpha_composite(top)
 
-# vignette
 vig = Image.new("L", (W, H), 0)
 vd = ImageDraw.Draw(vig)
-vd.rounded_rectangle([60, 40, W - 60, H - 40], radius=40, fill=255)
-vig = vig.filter(ImageFilter.GaussianBlur(90))
-dark = Image.new("RGBA", (W, H), (0, 0, 0, 110))
+vd.rounded_rectangle([70, 45, W - 70, H - 45], radius=46, fill=255)
+vig = vig.filter(ImageFilter.GaussianBlur(100))
+dark = Image.new("RGBA", (W, H), (0, 0, 0, 120))
 dark.putalpha(vig.point(lambda v: 255 - v))
-final = Image.alpha_composite(final, dark)
+final = Image.alpha_composite(final, dark).convert("RGB")
+final = final.filter(ImageFilter.UnsharpMask(radius=2, percent=110, threshold=2))
 
-out = final.convert("RGB")
-out = out.filter(ImageFilter.UnsharpMask(radius=2, percent=120, threshold=2))
-out.save("assets/local-ai-banner.png")
-out.save("assets/local-ai-banner.jpg", quality=92)
-print("wrote assets/local-ai-banner.png and .jpg  (%dx%d)" % out.size)
+final.save("assets/local-ai-banner.png")
+final.save("assets/local-ai-banner.jpg", quality=92)
+print("wrote assets/local-ai-banner.png and .jpg  (%dx%d)" % final.size)
