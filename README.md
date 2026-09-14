@@ -1,4 +1,14 @@
-# local-ai
+<p align="center">
+  <img src="assets/local-ai-banner.png" alt="local-ai banner" width="100%">
+</p>
+
+<p align="center">
+  <b>Consolidation of my personal local AI stack</b> —
+  <code>opencode</code> · <code>pi</code> · <code>dsh</code><br>
+  <i>DeepSeek V4 · self-hosted · always-on DSH service</i>
+</p>
+
+---
 
 Consolidation of my personal **local AI stack** — configuration that lets me rehydrate a
 fresh macOS machine (or environment) with the same tooling, providers, and always-on DeepSeek
