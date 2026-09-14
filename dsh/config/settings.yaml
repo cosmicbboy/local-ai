@@ -1,0 +1,19 @@
+# dsh (DeepSeek Harness) service providers.
+# Copied to ~/.dsh/settings.yaml by setup-web-profile.sh.
+# Secret-free: keys are referenced by env var name via apiKeyEnv / refs.
+
+llm-pi-ai:
+  providers:
+    qwen-token-plan:
+      apiKeyEnv: QWEN_TOKEN_PLAN_API_KEY
+    dgx-spark:
+      api: openai-completions
+      baseURL: http://100.70.69.103:8888/v1
+      models:
+        - id: deepseek-v4-flash-0731
+          name: deepseek-v4-flash-0731
+      apiKeyEnv: DGX_SPARK_API_KEY
+
+agent-default-model:
+  provider: dgx-spark
+  model: deepseek-v4-flash-0731

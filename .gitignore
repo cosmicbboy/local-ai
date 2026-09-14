@@ -1,0 +1,19 @@
+# ---- secrets / credentials (never commit real keys) ----
+*.key
+*.pem
+.env
+.env.*
+*.credentials.yaml
+qwen-token-plan.sh
+
+# ---- pi runtime state (auth + generated catalogs are environment-specific) ----
+pi/auth.json
+pi/models-store.json
+
+# ---- dsh service runtime state ----
+dsh/.credentials.yaml
+
+# ---- node / build artifacts ----
+node_modules/
+.swiftpm/
+.DS_Store
