@@ -1,5 +1,3 @@
-# local-ai
-
 <p align="center">
   <img src="assets/local-ai-banner.png" alt="local-ai banner" width="100%">
 </p>
