@@ -299,6 +299,12 @@ systemctl --user disable deepseek-v4-flash      # don't start on boot
 
 **Without systemd:** `~/serve-dspark-ds4.sh` / `dspark-ds4-0731/stop-deepseek-v4-flash-dspark.sh`.
 
+**After power-cycling both boxes:** run this from your Mac —
+[`scripts/restart-after-reboot.sh`](scripts/restart-after-reboot.sh). It waits for both
+nodes to be reachable on Tailscale, waits for the head node to see the worker over the
+RoCE fabric, then restarts the service and polls `/health` until the API is actually
+serving (not just "active (exited)").
+
 **Config change:** edit `~/dspark-ds4-0731/.env.dspark` on node 1, then
 `systemctl --user restart deepseek-v4-flash`. **`docker compose restart` does not
 pick up env changes** — always stop then start.
