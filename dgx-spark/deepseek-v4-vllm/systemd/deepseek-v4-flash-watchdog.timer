@@ -1,0 +1,16 @@
+[Unit]
+Description=Probe deepseek-v4-flash every minute
+Documentation=file:///home/nielsbantilan/deepseek-v4-flash-watchdog.sh
+
+[Timer]
+# First tick 3 min after login/boot so the serving unit gets a head start on weight load.
+OnBootSec=3min
+OnStartupSec=3min
+OnUnitActiveSec=60s
+AccuracySec=5s
+# A tick missed while the machine was off is not worth replaying; the next one is 60s away.
+Persistent=false
+Unit=deepseek-v4-flash-watchdog.service
+
+[Install]
+WantedBy=timers.target

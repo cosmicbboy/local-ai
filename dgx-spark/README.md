@@ -17,14 +17,21 @@ deployed on the pair, captured so the box can be re-hydrated from scratch.
 | Hostname | `spark-a7e9` (Tailscale `flint-dgx`) | `spark-17d7` |
 | Fabric IP / netdev / RDMA | `192.168.100.10` / `enp1s0f1np1` / `rocep1s0f1` | `192.168.100.11` / same names |
 | GPU | GB10, compute cap `sm_121`, 124 GiB unified VRAM | same |
-| NVIDIA driver | 580.142 | 580.173.02 |
-| Kernel | 6.17.0-1014-nvidia | 7.0.0-1019-nvidia |
+| NVIDIA driver | 580.142 | 580.173.02 ⚠️ |
+| Kernel | 6.17.0-1014-nvidia | 7.0.0-1019-nvidia ⚠️ |
 | OS | Ubuntu 24.04 (LTS) | Ubuntu 24.04 (LTS) |
 | CUDA (driver) | 13.0 | 13.0 |
 
 > `nvidia-smi` reports `[N/A]` for memory on GB10 — the GPU allocates from the same
 > LPDDR5X pool as the CPU. **Always use `free -g`, never `nvidia-smi`, to reason
 > about GB10 memory.**
+
+> ⚠️ **The nodes are not on the same kernel or driver, and it breaks things.** Node 2
+> drifted on 2026-09-16 (unattended-upgrades) and its kernel imposes a ~200 memory-region
+> ceiling on `ibv_reg_mr_iova2` that kills NCCL init and took the service down for ~21 h.
+> Worked around with `NCCL_MAX_NCHANNELS=8`; the real fix needs root. See
+> [`deepseek-v4-vllm/README.md` §7.5](deepseek-v4-vllm/README.md). **Check `uname -r` and
+> `nvidia-smi` on both nodes before debugging any NCCL failure.**
 
 ## What is (and isn't) captured here
 

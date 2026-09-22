@@ -11,6 +11,15 @@ WorkingDirectory=/home/nielsbantilan/dspark-ds4-0731
 Environment=HOME=/home/nielsbantilan
 # Wait for local docker, the RoCE link, and node 2 (docker + image) — up to 30 min.
 ExecStartPre=/home/nielsbantilan/dspark-wait-cluster.sh
+# Always tear both ranks down before starting. systemd runs ExecStop only for a unit that
+# reached `active`; a start that wedges (cluster never serves, unit stuck in `activating`)
+# is restarted WITHOUT ExecStop, so serve-dspark-ds4.sh finds the stale head container,
+# exits 3, and SuccessExitStatus=3 reports that no-op as a clean start. That is exactly
+# the outage the watchdog exists to clear (2026-09-21: it "restarted" twice against a
+# container wedged since the previous hour), so the cold stop belongs on the start path.
+# Ordered after wait-cluster because stop exits 1 when node 2 is unreachable. `systemctl
+# start` against an already-active unit is a no-op, so this never kills a healthy cluster.
+ExecStartPre=/home/nielsbantilan/dspark-ds4-0731/stop-deepseek-v4-flash-dspark.sh
 # Drop-caches sidecar on both nodes, worker then head, wait for the API + boot warmup.
 ExecStart=/home/nielsbantilan/serve-dspark-ds4.sh
 ExecStop=/home/nielsbantilan/dspark-ds4-0731/stop-deepseek-v4-flash-dspark.sh

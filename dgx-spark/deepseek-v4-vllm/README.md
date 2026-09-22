@@ -164,11 +164,21 @@ From this repo, copy onto node 1:
 | `scripts/dspark-ds4-0731-mkcache.sh` | `~/dspark-ds4-0731-mkcache.sh` | HF-cache builder (Step 3) |
 | `scripts/bench-dspark.py` | `~/bench-dspark.py` | streaming decode benchmark |
 | `scripts/bench-ds4.sh` | `~/bench-ds4.sh` | simple throughput one-shot |
+| `scripts/deepseek-v4-flash-watchdog.sh` | `~/deepseek-v4-flash-watchdog.sh` | outage watchdog (§5a) |
+| `systemd/deepseek-v4-flash-watchdog.{service,timer}` | `~/.config/systemd/user/` | runs the watchdog every 60 s |
+| `scripts/nccl-repro.sh` + `scripts/nccl_probe.py` | anywhere (run from the checkout) | 2-rank NCCL repro (§7.5) |
+
+Also apply the recipe patch, or `NCCL_MAX_NCHANNELS` is silently dropped (§7.5):
 
 ```bash
-chmod +x ~/serve-dspark-ds4.sh ~/dspark-wait-cluster.sh
+cd ~/dspark-ds4-0731 && git apply ../local-ai/dgx-spark/deepseek-v4-vllm/patches/0001-*.patch
+```
+
+```bash
+chmod +x ~/serve-dspark-ds4.sh ~/dspark-wait-cluster.sh ~/deepseek-v4-flash-watchdog.sh
 systemctl --user daemon-reload
 systemctl --user enable deepseek-v4-flash
+systemctl --user enable --now deepseek-v4-flash-watchdog.timer
 ```
 
 ### Step 6 — Start + verify
@@ -279,9 +289,68 @@ Modeled: `Type=oneshot RemainAfterExit=yes`, `ExecStartPre=dspark-wait-cluster.s
    the sidecars on exit.
 4. Unit goes `active (exited)`. Launcher exit 3 ("both already up") counts as success.
 
-> Cold boot through systemd was only *adopted* an already-running cluster (exit 3) in
-> the verified deployment. Run one `systemctl --user restart deepseek-v4-flash` in a
-> quiet window to prove the full path before relying on it after a power cycle.
+**`ExecStartPre` #2 (added 2026-09-21) — why the unit stops the cluster before starting
+it.** systemd runs `ExecStop` only for a unit that reached `active`. A start that wedges
+leaves the unit in `activating`, so a restart skips `ExecStop` entirely,
+`serve-dspark-ds4.sh` then finds the stale head container, exits 3, and
+`SuccessExitStatus=3` logs that no-op as a clean start. That is how the watchdog
+"restarted" twice on 2026-09-21 against a container that had been wedged since the
+previous hour. The cold stop therefore belongs on the *start* path, ordered after
+`dspark-wait-cluster.sh` (the stop script exits 1 when node 2 is unreachable).
+
+> **Verified 2026-09-22:** a full `systemctl --user restart deepseek-v4-flash` was run
+> twice end-to-end — unit `active`, both ranks `Up (healthy)`, API 200 after ~6.5 min.
+> The cold-boot path is no longer unproven.
+
+---
+
+## 5a. The watchdog
+
+The serving unit is `Type=oneshot` / `RemainAfterExit=yes` and the containers run with
+restart policy `no`, so systemd owns ordering but **nothing notices a mid-run death**.
+On 2026-09-19 rank 0's NCCL watchdog caught a 600 s `_ALLGATHER_BASE` timeout and took
+the process down; the unit still read `active (exited)` and the API was gone for hours.
+`deepseek-v4-flash-watchdog.timer` closes that gap.
+
+| File | Destination |
+|---|---|
+| `scripts/deepseek-v4-flash-watchdog.sh` | `~/deepseek-v4-flash-watchdog.sh` |
+| `systemd/deepseek-v4-flash-watchdog.service` | `~/.config/systemd/user/` |
+| `systemd/deepseek-v4-flash-watchdog.timer` | `~/.config/systemd/user/` |
+
+```bash
+chmod +x ~/deepseek-v4-flash-watchdog.sh
+systemctl --user daemon-reload
+systemctl --user enable --now deepseek-v4-flash-watchdog.timer
+```
+
+One tick, every 60 s:
+
+- **liveness** — `GET /v1/models`, 10 s budget.
+- **depth** — every 10 min, `POST /v1/completions` with `max_tokens=8` and a hard
+  deadline. This is the probe that matters: a wedged NCCL group still answers HTTP but
+  emits no tokens, so liveness alone would report a dead cluster as healthy.
+- 3 consecutive failures → cold restart via `systemctl --user restart`.
+
+Deliberate non-goals, both worth knowing before you debug its behaviour:
+
+- If the unit is `inactive` an operator stopped it on purpose. The watchdog **stands
+  down** and will not resurrect it; `systemctl --user start deepseek-v4-flash` re-arms it.
+- After 3 restarts in 3 h it **gives up** and only reports, so a genuinely broken cluster
+  is not restart-looped for days. It resets after 1 h healthy.
+
+```bash
+systemctl --user list-timers deepseek-v4-flash-watchdog.timer
+journalctl --user -u deepseek-v4-flash-watchdog -f
+cat ~/deepseek-v4-flash-watchdog-state.json      # phase, failures, restart history
+```
+
+> **Operational note.** When the watchdog has given up, its state file stays at
+> `phase: givenup` / `restarting` and the timer may be left stopped. After fixing the
+> underlying fault, clear it — delete `~/deepseek-v4-flash-watchdog-state.json` (the
+> script re-initialises to `phase: ok`) and `systemctl --user start
+> deepseek-v4-flash-watchdog.timer`. This was needed on 2026-09-22; a stale `phase:
+> restarting` with 4 consecutive failures had been sitting there since the previous day.
 
 ---
 
@@ -383,11 +452,68 @@ Then restart.
 
 ### 7.5 `ibv_reg_mr_iova2 ... Cannot allocate memory` / NCCL init errors
 
-Seen on the (abandoned) aidendle94 image attempts, not on this deployment. If it
-recurs: confirm `NCCL_CUMEM_ENABLE=0`, lower
-`GPU_MEMORY_UTILIZATION_TEXT` (0.78 floor), free unified memory held by other GPU
-workloads (LM Studio, Ollama, the llama.cpp RPC server on node 2), and re-check GIDs
-after a reboot.
+**This is a node-2 memory-region ceiling, not a memory shortage.** It took the service
+down for ~21 h on 2026-09-21/22. Do not chase free memory — the diagnosis is below.
+
+Signature (rank 1, on node 2):
+
+```
+wrap_ibv_reg_mr_iova2 NCCL WARN Call to ibv_reg_mr_iova2 failed with error Cannot allocate memory
+  -> ncclIbRegMrDmaBufInternal -> ncclCommInitRank
+  -> RuntimeError: NCCL error: unhandled system error
+  -> vLLM: WorkerProc initialization failed
+```
+Rank 0 then hangs forever in `shm_broadcast`, so the unit sits in `activating` until
+`TimeoutStartSec`.
+
+**Cause.** Node 2's kernel refuses `ibv_reg_mr_iova2` past a **fixed budget of ~200
+memory regions**, regardless of free memory. It is a hard ceiling, not exhaustion:
+when it fired there was 122 GB free, `ulimit -l` was `unlimited` inside the container
+on both nodes, and `ibv_devinfo -v` caps were byte-identical between them. Node 1
+(`6.17.0-1014-nvidia` / driver `580.142`) has no such ceiling; node 2
+(`7.0.0-1019-nvidia` / driver `580.173.02`) does — it is a regression in the drifted
+kernel + driver pair (1.3).
+
+NCCL registers one region **per channel per communicator**. At the default 64 channels
+the budget is gone by the third communicator, and vLLM opens several over the same two
+ranks — so it dies during init, every time, reproducibly.
+
+**Fix in place:** `NCCL_MAX_NCHANNELS=8` in `.env.dspark`. Measured ceiling, with
+`scripts/nccl-repro.sh`:
+
+| `NCCL_MAX_NCHANNELS` | communicators survived | |
+|---|---|---|
+| 64 (default) | 3 | FAIL |
+| 32 | 7 | FAIL |
+| 16 | 11 | PASS |
+| **8** | **21** | **PASS** — deployed, ample headroom |
+
+It **costs no throughput** (§8): TP=2 decode is latency-bound on small messages, so the
+default 64 channels was never buying bandwidth here.
+
+> ⚠️ Setting this in `.env.dspark` alone does nothing. The compose `environment:` map is
+> an explicit allowlist and silently drops unknown keys — apply
+> [`patches/0001-nccl-nchannels-passthrough.patch`](patches/) too, and verify with the
+> `/proc/1/environ` check in [`patches/README.md`](patches/README.md).
+
+**Two red herrings**, both ruled out — don't repeat them:
+
+- *"Disable GDR."* GPU Direct RDMA is **already off** on this hardware (`NET/IB : GPU
+  Direct RDMA Disabled`, `GDR 0`), so these are *host* bounce buffers, not GPU memory.
+  `NCCL_NET_GDR_LEVEL` / `NCCL_NET_GDR_READ` are no-ops for this failure.
+- *"It's the dmabuf path."* `dlvsym failed on mlx5dv_reg_dmabuf_mr` appears on **both**
+  nodes, which is why the failing call sits under `ncclIbRegMrDmaBufInternal` — that
+  function is shared by both registration paths. `NCCL_DMABUF_ENABLE=0` does not help;
+  it only turns ~69 ENOMEM retries into one fast failure.
+
+**The real fix needs root** and is still outstanding (§9.3): put node 2 back on
+`6.17.0-1014-nvidia` and reconcile the driver. Then drop `NCCL_MAX_NCHANNELS` and
+re-run `scripts/nccl-repro.sh postfix` to confirm the ceiling is gone.
+
+**Unrelated causes of a superficially similar error**, still worth checking if the
+signature does *not* match the above: `NCCL_CUMEM_ENABLE=0` unset, `GPU_MEMORY_UTILIZATION_TEXT`
+too high (0.78 floor), unified memory held by other GPU workloads (LM Studio, Ollama,
+the llama.cpp RPC server on node 2), or stale GIDs after a reboot.
 
 ### 7.6 Mid-serve stall: "No available shared memory broadcast block"
 
@@ -422,17 +548,51 @@ for tailnet-only access: `sudo ufw allow in on tailscale0 to any port 8888 proto
 Boot stats: model 79.17 GiB per rank; KV 11.46 GiB → 1,701,429 tokens (1.62× a full
 1M request); graph capture 21 s, 1.25 GiB (head) / 2.59 GiB (worker).
 
+### Re-measured 2026-09-22, after `NCCL_MAX_NCHANNELS=8` (§7.5)
+
+| Workload | Decode tok/s | TTFT |
+|---|---|---|
+| Code, thinking off | 77.5 / 73.1 / 75.9 | 0.17–0.21 s |
+| Code, thinking low | 70.9 / 63.9 | 0.14–0.18 s |
+
+**Capping channels costs nothing.** Both rows match or beat the 2026-09-12 baseline
+above, which is the expected result: TP=2 decode is latency-bound on small messages, so
+64 channels was never buying bandwidth on a single-NIC pair. Cold start also came down
+to ~5 min (fewer channels, faster NCCL init).
+
 ---
 
 ## 9. Known risks / open items
 
-1. **Cold boot via systemd untested** — prove with one quiet restart.
+1. ~~**Cold boot via systemd untested**~~ — **closed 2026-09-22.** Two full
+   `systemctl --user restart` cycles verified end-to-end (§5).
 2. **`lmstudio.service` also enabled at boot** loads `qwen3-coder-next` +
    `qwen3.6-35b-a3b` on node 1, competing for unified memory. Consider
    `systemctl --user disable lmstudio` (its `ExecStart` already fails with 203/EXEC,
    but its model-loading `ExecStartPre`s still run).
-3. **Node driver/kernel mismatch** (§1) — aligning may improve speed and remove the
-   §7.1 wedge trigger.
+3. **Node driver/kernel mismatch** (§1) — **this is now a known service-breaker, not a
+   nice-to-have.** Node 2's `7.0.0-1019-nvidia` + driver `580.173.02` imposes the ~200
+   memory-region ceiling that killed the service for ~21 h (§7.5). `NCCL_MAX_NCHANNELS=8`
+   works around it but leaves ~8× less headroom than node 1 has, so a future vLLM or
+   recipe version that opens more communicators can hit it again.
+
+   The real fix needs an interactive sudo password (neither node has passwordless sudo).
+   `linux-image-6.17.0-1014-nvidia` **is** available in node 2's repos — verified:
+
+   ```bash
+   # on node 2 (192.168.100.11)
+   sudo apt install linux-image-6.17.0-1014-nvidia
+   sudo apt-mark hold linux-image-nvidia-hwe-24.04 linux-image-6.17.0-1014-nvidia
+   # reboot into it, then reconcile the NVIDIA driver (node 1 580.142 vs node 2 580.173.02)
+   uname -r && nvidia-smi --query-gpu=driver_version --format=csv,noheader   # on both
+   ```
+
+   Afterwards: drop `NCCL_MAX_NCHANNELS` from `.env.dspark` and run
+   `scripts/nccl-repro.sh postfix` to confirm the ceiling is gone. The kernel hold is the
+   point — unattended-upgrades is what drifted node 2 on 2026-09-16 in the first place.
+
+   **Check `uname -r` *and* `nvidia-smi` on both nodes before debugging any future NCCL
+   init failure.**
 4. **No API key** — anyone on LAN/tailnet can use the model. Set `VLLM_API_KEY=` in
    `.env.dspark` to require one.
 5. **Upstream moves on** — stay pinned on `0731-ablit` unless deliberately changing
@@ -456,6 +616,12 @@ Boot stats: model 79.17 GiB per rank; KV 11.46 GiB → 1,701,429 tokens (1.62× 
 | `scripts/bench-dspark.py` | streaming single-stream decode bench |
 | `scripts/bench-ds4.sh` | simple one-shot throughput |
 | `scripts/serve-deepseek-v4-flash-llamacpp.sh` | **reference only**: the older llama.cpp RPC DS4 config (~25 tok/s), superseded by this vLLM service |
+| `systemd/deepseek-v4-flash-watchdog.service` | watchdog unit — one probe tick (§5a) |
+| `systemd/deepseek-v4-flash-watchdog.timer` | fires the watchdog every 60 s |
+| `scripts/deepseek-v4-flash-watchdog.sh` | the watchdog: liveness + generation probe, cold restart, give-up policy |
+| `scripts/nccl-repro.sh` | 2-rank NCCL repro, ~1 min per run instead of a 13-min vLLM boot (§7.5) |
+| `scripts/nccl_probe.py` | the probe `nccl-repro.sh` stages to both nodes |
+| `patches/` | local changes to the (unvendored) recipe checkout — currently the NCCL channel-knob passthrough |
 
 The recipe checkout itself (compose file, launchers, patches, DSpark overlay) is an
 upstream repo — reference/pin it per §Step 1 rather than vendoring it here.

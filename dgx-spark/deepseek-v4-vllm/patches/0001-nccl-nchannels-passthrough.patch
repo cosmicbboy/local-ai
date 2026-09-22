@@ -1,0 +1,22 @@
+diff --git a/docker-compose.dspark.yml b/docker-compose.dspark.yml
+index 34926cb..805b228 100644
+--- a/docker-compose.dspark.yml
++++ b/docker-compose.dspark.yml
+@@ -221,6 +221,8 @@ services:
+       NCCL_NET_GDR_LEVEL: "${NCCL_NET_GDR_LEVEL:-}"
+       NCCL_NET_GDR_READ: "${NCCL_NET_GDR_READ:-}"
+       NCCL_DMABUF_ENABLE: "${NCCL_DMABUF_ENABLE:-}"
++      NCCL_MAX_NCHANNELS: "${NCCL_MAX_NCHANNELS:-}"
++      NCCL_MIN_NCHANNELS: "${NCCL_MIN_NCHANNELS:-}"
+ 
+       NODE_RANK: "${NODE_RANK}"
+       HEADLESS: "${HEADLESS:-}"
+@@ -278,6 +280,8 @@ services:
+         if [ -z "$${NCCL_NET_GDR_LEVEL:-}" ]; then unset NCCL_NET_GDR_LEVEL; fi;
+         if [ -z "$${NCCL_NET_GDR_READ:-}" ]; then unset NCCL_NET_GDR_READ; fi;
+         if [ -z "$${NCCL_DMABUF_ENABLE:-}" ]; then unset NCCL_DMABUF_ENABLE; fi;
++        if [ -z "$${NCCL_MAX_NCHANNELS:-}" ]; then unset NCCL_MAX_NCHANNELS; fi;
++        if [ -z "$${NCCL_MIN_NCHANNELS:-}" ]; then unset NCCL_MIN_NCHANNELS; fi;
+         if [ -n "$${TORCH_FR_DUMP_TEMP_FILE:-}" ]; then mkdir -p "$$(dirname "$${TORCH_FR_DUMP_TEMP_FILE}")" || echo "warn: cannot create flight-recorder dump dir; dumps will be lost (boot continues)" >&2; fi;
+         ENCODING_SOURCE="$${DSPARK_ENCODING_FILE:-}";
+         if [ -z "$${ENCODING_SOURCE}" ]; then

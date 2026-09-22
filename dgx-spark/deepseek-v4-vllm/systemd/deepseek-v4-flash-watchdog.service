@@ -1,0 +1,14 @@
+[Unit]
+Description=Watchdog for deepseek-v4-flash.service (probe the vLLM API, cold-restart the TP=2 cluster on outage)
+Documentation=file:///home/nielsbantilan/deepseek-v4-flash-watchdog.sh
+# Only meaningful alongside the serving unit, but deliberately NOT Requires=: the watchdog
+# must keep ticking (and reporting) while the service is down, which is the whole point.
+After=deepseek-v4-flash.service
+
+[Service]
+Type=oneshot
+Environment=HOME=/home/nielsbantilan
+ExecStart=/home/nielsbantilan/deepseek-v4-flash-watchdog.sh
+# One tick is short by design: a restart is dispatched with --no-block and watched across
+# later ticks, so nothing here should ever approach this bound.
+TimeoutStartSec=5min
