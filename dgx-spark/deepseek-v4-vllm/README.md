@@ -472,7 +472,7 @@ when it fired there was 122 GB free, `ulimit -l` was `unlimited` inside the cont
 on both nodes, and `ibv_devinfo -v` caps were byte-identical between them. Node 1
 (`6.17.0-1014-nvidia` / driver `580.142`) has no such ceiling; node 2
 (`7.0.0-1019-nvidia` / driver `580.173.02`) does — it is a regression in the drifted
-kernel + driver pair (1.3).
+kernel + driver pair (§1).
 
 NCCL registers one region **per channel per communicator**. At the default 64 channels
 the budget is gone by the third communicator, and vLLM opens several over the same two
@@ -493,7 +493,8 @@ default 64 channels was never buying bandwidth here.
 
 > ⚠️ Setting this in `.env.dspark` alone does nothing. The compose `environment:` map is
 > an explicit allowlist and silently drops unknown keys — apply
-> [`patches/0001-nccl-nchannels-passthrough.patch`](patches/) too, and verify with the
+> [`patches/0001-nccl-nchannels-passthrough.patch`](patches/0001-nccl-nchannels-passthrough.patch)
+> too, and verify with the
 > `/proc/1/environ` check in [`patches/README.md`](patches/README.md).
 
 **Two red herrings**, both ruled out — don't repeat them:
