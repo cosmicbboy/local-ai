@@ -3,7 +3,7 @@
 The serving config for the DeepSeek-V4-Flash vLLM service lives in
 `~/dspark-ds4-0731/.env.dspark` on node 1 (synced by the launcher to node 2 at every
 start). It is copied verbatim from the recipe's `.env.dspark.example` and edited in
-**8 places**. The deployed file is vendored here as
+**9 places**. The deployed file is vendored here as
 [`DEPLOYED.env.dspark`](DEPLOYED.env.dspark) — the ground truth.
 
 ## The complete diff (`diff .env.dspark.example .env.dspark`)
@@ -44,6 +44,9 @@ start). It is copied verbatim from the recipe's `.env.dspark.example` and edited
 
  303 : -DEFAULT_THINKING=max
      : +DEFAULT_THINKING=low
+
+ 594 : (appended 2026-09-22, with an explanatory comment block)
+     : +NCCL_MAX_NCHANNELS=8
 ```
 
 Everything else is the upstream default (including `MAX_MODEL_LEN=1048576`,
@@ -63,15 +66,21 @@ Everything else is the upstream default (including `MAX_MODEL_LEN=1048576`,
 | `DSPARK_VLLM_IMAGE` | `…:0.1.1@sha256:a839…` | `…:0.1.1` | digest lost on node 2 after `docker load`; image IDs verified equal |
 | `GPU_MEMORY_UTILIZATION_TEXT` | 0.835 | **0.80** | extra headroom; the old image hit `ibv_reg_mr` ENOMEM at 0.85 |
 | `DEFAULT_THINKING` | max | **low** | faster default; clients can raise it per request |
+| `NCCL_MAX_NCHANNELS` | (unset → 64) | **8** | node 2's ~200 memory-region ceiling; 64 channels exhausts it on the 3rd communicator and rank 1 dies in NCCL init. Costs no throughput. See runbook §7.5 |
 
 ## Merge procedure on a fresh checkout
 
 ```bash
 cd dspark-ds4-0731
 cp .env.dspark.example .env.dspark
-# edit .env.dspark and apply the 8 hunks above, or just crib from
+# edit .env.dspark and apply the 9 hunks above, or just crib from
 # config/DEPLOYED.env.dspark in this repo.
 ```
+
+> ⚠️ `NCCL_MAX_NCHANNELS` also needs `patches/0001-nccl-nchannels-passthrough.patch`
+> applied to the recipe checkout. The compose `environment:` map is an explicit
+> allowlist, so a `NCCL_*` key that is only in `.env.dspark` is silently dropped and
+> `validate-dspark-config.sh` will not complain. See `patches/README.md`.
 
 Then sanity-check with the recipe's validator (if available):
 `./validate-dspark-config.sh`. Editing only node 1's copy is sufficient — the
