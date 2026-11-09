@@ -1,5 +1,11 @@
 # Patches for DeepSeek-V4.1-Flash recipe
 
+## tensorfold-0001-rdma-gid-index-from-env.patch
+
+For bertholomus's TensorFold fork, branch `deepseek-v41-zig-tp2` at `e100ee8b`. Makes the dsv41 RDMA ring read
+`TF_RDMA_GID_INDEX` (default 5) instead of hardcoding 5. Our nodes' RoCE v2 IPv4 GID is at index 3.
+Written, not built or tested. See `FINDINGS.md` §4.
+
 > **STATUS: DRAFT — patches will be created once the V4.1 recipe is available**
 
 This directory will hold patches to apply to the V4.1 recipe checkout

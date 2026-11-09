@@ -10,12 +10,9 @@
 #   ~/dspark-ds41/stop-deepseek-v4.1-flash-dspark.sh    stop both ranks
 set -euo pipefail
 NODES=(192.168.100.10 192.168.100.11)
-# TODO: Update IMG to the V4.1-capable image once available (blocker #2 in README.md)
-# Options:
-#   - eugr/spark-vllm-b12x:latest (community Spark image, may have V4.1 support)
-#   - vllm/vllm-openai:v0.28.0 (stock vLLM with deepseek_v41 tokenizer, but no B12X kernels)
-#   - Custom build from vLLM source with SM12x support
-IMG=${DSPARK_VLLM_IMAGE:-ghcr.io/anemll/dspark-vllm-gx10:0.1.1}
+# Image with V4.1 support: eugr/spark-vllm-b12x:latest (2026-11-02)
+# Contains DeepseekV41ForCausalLM, DSpark support, B12X kernels, deepseek_v41 tokenizer
+IMG=${DSPARK_VLLM_IMAGE:-eugr/spark-vllm-b12x:latest}
 REPO=/home/nielsbantilan/dspark-ds41
 
 sidecar_up() {

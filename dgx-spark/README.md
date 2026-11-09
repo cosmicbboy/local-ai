@@ -8,6 +8,7 @@ deployed on the pair, captured so the box can be re-hydrated from scratch.
 | Path | What it is |
 |------|-----------|
 | [`deepseek-v4-vllm/`](deepseek-v4-vllm/) | **The currently-served service** — DeepSeek-V4-Flash-0731, vLLM + DSpark speculative decoding, TP=2 across both Sparks, OpenAI API on `:8888`. Full rehydration + ops runbook, systemd unit, wrapper scripts, and the exact deployed `.env.dspark`. |
+| [`deepseek-v4.1-vllm/`](deepseek-v4.1-vllm/) | **On hold, not deployed.** DeepSeek-V4.1-Flash-1017 prep and findings: the ~475 GiB checkpoint does not fit two Sparks; only community ~2.5–2.8 bpw EXL3 builds do. See [`FINDINGS.md`](deepseek-v4.1-vllm/FINDINGS.md). |
 | [`dual-dgx/`](dual-dgx/) | **Dual-node bring-up runbook** — fabric validation, the ConnectX-7 power-throttle bug, node bootstrap, shared storage, and the three ways to serve a model across both Sparks (vLLM+Ray TP=2, llama.cpp RPC, SGLang), with the helper scripts. |
 
 ## The cluster at a glance

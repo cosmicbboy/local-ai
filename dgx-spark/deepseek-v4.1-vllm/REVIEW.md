@@ -1,5 +1,8 @@
 # Code Review: DeepSeek V4.1 Migration Preparation
 
+> **Superseded (2026-11-09):** this review missed that the checkpoint is ~475 GiB and cannot fit on
+> two Sparks. See [`FINDINGS.md`](FINDINGS.md).
+
 **Reviewer:** AI Assistant  
 **Date:** 2026-11-06  
 **Branch:** `dgx-spark/deepseek-v4.1-prep`  

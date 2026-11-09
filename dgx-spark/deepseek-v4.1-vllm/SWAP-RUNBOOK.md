@@ -1,5 +1,9 @@
 # Swap Runbook: DeepSeek-V4 → V4.1 on 2× DGX Spark
 
+> **Superseded (2026-11-09):** this vLLM plan cannot work on two Sparks: the checkpoint is ~475 GiB.
+> See [`FINDINGS.md`](FINDINGS.md). The rollback lesson still applies: restart
+> `deepseek-v4-flash-watchdog.timer` as well as the service.
+
 > **Purpose:** Step-by-step procedure to safely migrate the live DeepSeek-V4-Flash-0731
 > vLLM service to DeepSeek-V4.1-Flash on the same dual-DGX-Spark pair.
 >
