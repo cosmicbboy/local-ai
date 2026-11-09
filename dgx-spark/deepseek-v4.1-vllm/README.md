@@ -1,6 +1,7 @@
 # DeepSeek-V4.1-Flash vLLM service (TP=2 across 2× DGX Spark)
 
-> **Status: ON HOLD — V4 stays live.** Full findings: [`FINDINGS.md`](FINDINGS.md).
+> **Status: superseded.** The live V4.1 service is the EXL3 build in [`../deepseek-v4.1-exl3/`](../deepseek-v4.1-exl3/).
+> This directory covers the full-precision path, which is on hold. Full findings: [`FINDINGS.md`](FINDINGS.md).
 >
 > DeepSeek-V4.1-Flash-1017 is ~475 GiB of weights (269 GiB FP4 routed experts + 189 GiB
 > Engram tables + 17 GiB rest). The pair has ~242 GiB of unified memory in total, so the

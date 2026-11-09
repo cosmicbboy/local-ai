@@ -1,6 +1,9 @@
 # DeepSeek-V4.1-Flash on 2× DGX Spark: findings (2026-11-08 → 2026-11-09)
 
-> **Outcome: not deployed. V4 (`deepseek-v4-flash-0731`) stays the live service on `:8888`.**
+> **Update 2026-11-09 15:58 EST:** the 0xSero 2.7 bpw EXL3 build is now live on `:8888` as
+> `deepseek-v4-flash-0731`; see [`../deepseek-v4.1-exl3/`](../deepseek-v4.1-exl3/). The full-precision findings below still hold.
+>
+> **Original outcome: not deployed. V4 (`deepseek-v4-flash-0731`) stays the live service on `:8888`.**
 >
 > The full-precision V4.1-Flash-1017 checkpoint does not fit in two GB10s. The only builds that do are
 > community ~2.5–2.8 bpw EXL3 quants served by community engines (not stock vLLM), with a measurable
